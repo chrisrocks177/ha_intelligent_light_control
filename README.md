@@ -222,20 +222,6 @@ Developed for the Home Assistant Community with focus on professional KNX integr
 - **Discussions:** [GitHub Discussions](https://github.com/chrisrocks177/ha_intelligent_light_control /discussions)
 - **Home Assistant Forum:** [Community Forum](https://community.home-assistant.io/)
 
-## 🗺️ Roadmap
-
-### Version 1.2.0 (planned)
-- [ ] Multiple light groups per room
-- [ ] Time-based automations
-- [ ] Seasonal adjustments
-
-### Version 1.3.0 (planned)
-- [ ] Web UI for easier configuration
-- [ ] Templates for common scenarios
-- [ ] Import/Export of configurations
-
----
-
 **Developed with ❤️ for the Home Assistant Community**
 
 ⭐ If you like this Blueprint, give the repository a star!
