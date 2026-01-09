@@ -155,23 +155,6 @@ Das Blueprint unterstützt beim Ausschalten:
 - ✅ `plug.*` - Steckdosen
 - ✅ Alle Entitäten mit `turn_off` Service
 
-Siehe [SWITCH_SUPPORT.md](SWITCH_SUPPORT.md) für Details.
-
-## 🔄 Update von v1.0.0 auf v1.1.0
-
-Siehe [UPDATE_V1.1.0.md](UPDATE_V1.1.0.md) für einen detaillierten Migrations-Guide.
-
-**Wichtigste Schritte:**
-1. Prüfe alle Szenen auf Vollständigkeit
-2. Teste Toggle-Funktion für jede Szene
-3. Bei Problemen: Fehlende Lichter zur Szene hinzufügen
-
-## 📚 Dokumentation
-
-- [CHANGELOG.md](CHANGELOG.md) - Vollständige Versionshistorie
-- [SWITCH_SUPPORT.md](SWITCH_SUPPORT.md) - Switch/Plug Unterstützung
-- [UPDATE_V1.1.0.md](UPDATE_V1.1.0.md) - Migrations-Guide
-
 ## 🐛 Problembehandlung
 
 ### Lichter gehen beim Toggle nicht aus
@@ -197,15 +180,6 @@ Siehe [UPDATE_V1.1.0.md](UPDATE_V1.1.0.md) für einen detaillierten Migrations-G
 2. Override-Entitäten auf "off"?
 3. KNX-Sensor Nachlaufzeit konfiguriert?
 
-## 🤝 Beitragen
-
-Contributions sind willkommen! 
-
-1. Fork das Repository
-2. Erstelle einen Feature-Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit deine Änderungen (`git commit -m 'Add some AmazingFeature'`)
-4. Push zum Branch (`git push origin feature/AmazingFeature`)
-5. Öffne einen Pull Request
 
 ### Entwicklungsrichtlinien
 

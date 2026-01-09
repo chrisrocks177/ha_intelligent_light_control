@@ -153,19 +153,6 @@ The Blueprint supports for switching off:
 - ✅ `plug.*` - Plugs
 - ✅ All entities with `turn_off` service
 
-## 🔄 Update from v1.0.0 to v1.1.0
-
-**Most Important Steps:**
-1. Check all scenes for completeness
-2. Test toggle function for each scene
-3. If problems: Add missing lights to scene
-
-## 📚 Documentation
-
-- [CHANGELOG.md](CHANGELOG.md) - Complete version history
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
-- [LEGAL.md](LEGAL.md) - Legal notices
-
 ## 🐛 Troubleshooting
 
 ### Lights don't turn off with toggle
@@ -190,16 +177,6 @@ The Blueprint supports for switching off:
 1. Presence sensor status correct?
 2. Override entities at "off"?
 3. KNX sensor follow-up time configured?
-
-## 🤝 Contributing
-
-Contributions are welcome! 
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ### Development Guidelines
 
