@@ -44,7 +44,7 @@ Professionelle KNX-Lichtsteuerung mit szenenbasiertem Ausschalten, Toggle-Funkti
 3. Klicke auf **Blueprint importieren**
 4. Füge diese URL ein:
    ```
-   https://github.com/DEIN-USERNAME/DEIN-REPO/blob/main/light_control_day_night.yaml
+   https://github.com/chrisrocks177/ha_intelligent_light_control /blob/main/light_control_day_night.yaml
    ```
 5. Klicke auf **Vorschau** und dann auf **Importieren**
 
@@ -53,7 +53,7 @@ Professionelle KNX-Lichtsteuerung mit szenenbasiertem Ausschalten, Toggle-Funkti
 1. Lade die Datei `light_control_day_night.yaml` herunter
 2. Kopiere sie in dein Home Assistant Blueprint-Verzeichnis:
    ```
-   config/blueprints/automation/DEIN-USERNAME/
+   config/blueprints/automation/chrisrocks177/
    ```
 3. Starte Home Assistant neu oder lade die Blueprints neu
 
@@ -224,8 +224,8 @@ Entwickelt für die Home Assistant Community mit Fokus auf professionelle KNX-In
 
 ## 📞 Support
 
-- **Issues:** [GitHub Issues](https://github.com/DEIN-USERNAME/DEIN-REPO/issues)
-- **Diskussionen:** [GitHub Discussions](https://github.com/DEIN-USERNAME/DEIN-REPO/discussions)
+- **Issues:** [GitHub Issues](https://github.com/chrisrocks177/ha_intelligent_light_control /issues)
+- **Diskussionen:** [GitHub Discussions](https://github.com/chrisrocks177/ha_intelligent_light_control /discussions)
 - **Home Assistant Forum:** [Community Forum](https://community.home-assistant.io/)
 
 ## 🗺️ Roadmap

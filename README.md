@@ -45,7 +45,7 @@ Professional KNX light control with scene-based switching, toggle function, and 
 3. Click **Import Blueprint**
 4. Paste this URL:
    ```
-   https://github.com/YOUR-USERNAME/YOUR-REPO/blob/main/light_control_day_night_EN.yaml
+   https://github.com/chrisrocks177/ha_intelligent_light_control /blob/main/light_control_day_night_EN.yaml
    ```
 5. Click **Preview** then **Import**
 
@@ -54,7 +54,7 @@ Professional KNX light control with scene-based switching, toggle function, and 
 1. Download the file `light_control_day_night_EN.yaml`
 2. Copy it to your Home Assistant Blueprint directory:
    ```
-   config/blueprints/automation/YOUR-USERNAME/
+   config/blueprints/automation/chrisrocks177/
    ```
 3. Restart Home Assistant or reload Blueprints
 
@@ -218,8 +218,8 @@ Developed for the Home Assistant Community with focus on professional KNX integr
 
 ## 📞 Support
 
-- **Issues:** [GitHub Issues](https://github.com/YOUR-USERNAME/YOUR-REPO/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/YOUR-USERNAME/YOUR-REPO/discussions)
+- **Issues:** [GitHub Issues](https://github.com/chrisrocks177/ha_intelligent_light_control /issues)
+- **Discussions:** [GitHub Discussions](https://github.com/chrisrocks177/ha_intelligent_light_control /discussions)
 - **Home Assistant Forum:** [Community Forum](https://community.home-assistant.io/)
 
 ## 🗺️ Roadmap
