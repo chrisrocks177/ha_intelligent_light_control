@@ -2,10 +2,10 @@
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Blueprint-41BDF5.svg)](https://www.home-assistant.io/)
 [![KNX](https://img.shields.io/badge/KNX-Integration-00A9E0.svg)](https://www.home-assistant.io/integrations/knx/)
-[![Version](https://github.com/chrisrocks177/ha_intelligent_light_control/releases)
+[![Version](https://img.shields.io/badge/Version-1.1.0-blue.svg)](https://github.com/chrisrocks177/ha_intelligent_light_control/releases)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="chrisrocks" data-color="#FFDD00" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/chrisrocks)
 
 
 Professional KNX light control with scene-based switching, toggle function, and intelligent day/night automation.

@@ -5,7 +5,7 @@
 [![Version](https://img.shields.io/badge/Version-1.1.0-blue.svg)](https://github.com/chrisrocks177/ha_intelligent_light_control/releases)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="chrisrocks" data-color="#FFDD00" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/chrisrocks)
 
 Professionelle KNX-Lichtsteuerung mit szenenbasiertem Ausschalten, Toggle-Funktion und intelligenter Tag/Nacht-Automatik.
 
