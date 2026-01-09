@@ -1,0 +1,907 @@
+blueprint:
+  name: Lichtsteuerung mit Tag- und Nachtmodus
+  description: |
+    v1.1.0 - Professionelle KNX-Lichtsteuerung mit szenenbasiertem Ausschalten
+    
+    Steuert Licht mit drei Tastern: Tagbeleuchtung, Nachtbeleuchtung und automatische Auswahl.
+    Toggle-Funktion: Ist die Szene bereits aktiv, werden alle Szenen-Lichter ausgeschaltet.
+    
+    NEU in v1.1.0: Szenenbasiertes Ausschalten
+    • Toggle schaltet nur Lichter aus die in der aktiven Szene enthalten sind
+    • Löst geteilte-Lampen-Problem (Lampe beleuchtet mehrere Räume)
+    • Präziser und flexibler
+    
+    ⚠️ WICHTIG: Szenen müssen ALLE relevanten Lichter enthalten!
+    
+    Optional: Vierter Taster zum direkten Ausschalten (egal welcher Status).
+    Optional: Durchgangslicht bei Präsenz.
+    
+    ⚙️ KNX-Präsenzmelder Steuerung:
+    Der KNX-Sensor steuert selbst:
+    • Nachlaufzeit (wie lange Licht an bleibt)
+    • Helligkeitsschwelle (nur bei Dunkelheit triggern)
+    • Bewegungserkennung
+    
+    Blueprint reagiert nur auf Präsenzmelder on/off:
+    • Präsenzmelder "on" → Durchgangslicht EIN
+    • Präsenzmelder "off" → Durchgangslicht AUS
+    
+    WICHTIG - Optionale Felder:
+    Wenn du bestimmte Features NICHT nutzen möchtest (z.B. kein Durchgangslicht),
+    lasse bei den entsprechenden Feldern einfach "Sonne" (sun.sun) oder "31/7/255" ausgewählt.
+    Das Blueprint erkennt dies als "nicht konfiguriert" und überspringt das Feature.
+  domain: automation
+  input:
+    # ========================================================================
+    # KNX Taster Gruppenadressen
+    # Format: Hauptgruppe/Mittelgruppe/Untergruppe (z.B. "1/2/3")
+    # ========================================================================
+    
+    taster_tag_ga:
+      name: 🔆 Taster Tagbeleuchtung
+      description: |
+        KNX Gruppenadresse im Format: Hauptgruppe/Mittelgruppe/Untergruppe
+        Beispiel: 1/2/1
+      selector:
+        text:
+    
+    taster_nacht_ga:
+      name: 🌙 Taster Nachtbeleuchtung
+      description: |
+        KNX Gruppenadresse im Format: Hauptgruppe/Mittelgruppe/Untergruppe
+        Beispiel: 1/2/2
+      selector:
+        text:
+    
+    taster_auto_ga:
+      name: 🔄 Taster Automatik
+      description: |
+        KNX Gruppenadresse im Format: Hauptgruppe/Mittelgruppe/Untergruppe
+        Beispiel: 1/2/3
+      selector:
+        text:
+    
+    taster_aus_ga:
+      name: ⏻ Taster Alles Aus (optional)
+      description: |
+        KNX Gruppenadresse für "Alles Aus" - schaltet das Licht immer aus.
+        Format: Hauptgruppe/Mittelgruppe/Untergruppe
+        Beispiel: 1/2/10
+        
+        Wenn nicht benötigt: "31/7/255" stehen lassen (wird ignoriert).
+      default: "31/7/255"
+      selector:
+        text:
+    
+    status_rueckmeldung_ga:
+      name: 📡 Status-Rückmeldung (optional)
+      description: |
+        KNX Gruppenadresse für Statusrückmeldung an KNX-Bus.
+        Format: Hauptgruppe/Mittelgruppe/Untergruppe
+        Beispiel: 1/2/20
+        
+        Funktionsweise:
+        • Licht EIN (Tag/Nacht/Durchgang) → Sendet "1" (Ein)
+        • Licht AUS → Sendet "0" (Aus)
+        
+        Nützlich für:
+        • Status-LEDs an KNX-Tastern
+        • KNX-Visualisierung
+        • Integration mit anderen KNX-Geräten
+        
+        Wenn nicht benötigt: "31/7/255" stehen lassen (wird ignoriert).
+      default: "31/7/255"
+      selector:
+        text:
+    
+    # ========================================================================
+    # Szenen und Sensoren
+    # ========================================================================
+    
+    tag_nacht_sensor:
+      name: 🌓 Tag/Nacht Sensor
+      description: |
+        Binärer Sensor zur Unterscheidung zwischen Tag und Nacht.
+        "on" = Nacht | "off" = Tag
+      selector:
+        entity:
+          domain: binary_sensor
+    
+    szene_tag:
+      name: ☀️ Szene Tagbeleuchtung
+      description: Szene die bei Tagbetrieb aktiviert werden soll
+      selector:
+        entity:
+          domain: scene
+    
+    szene_nacht:
+      name: 🌛 Szene Nachtbeleuchtung
+      description: Szene die bei Nachtbetrieb aktiviert werden soll
+      selector:
+        entity:
+          domain: scene
+    
+    licht_gruppe:
+      name: 💡 Lichtgruppe
+      description: |
+        Lichtgruppe mit allen Lampen des Raums.
+        
+        Verwendung:
+        • "Alles Aus" Taster (schaltet wirklich alle Lichter aus)
+        • Optionale Verwendung in anderen Automationen
+        
+        ⚠️ WICHTIG ab v1.1.0:
+        Toggle-Funktionen nutzen Szenen-Lichter, nicht die Lichtgruppe!
+        Die Lichtgruppe wird nur noch für den "Alles Aus" Taster benötigt.
+      selector:
+        entity:
+          domain: light
+    
+    status_helper:
+      name: 📊 Status Helper
+      description: |
+        Input Select Helper für die Statusverwaltung.
+        Optionen: aus, tag, nacht, durchgang
+        
+        Erstelle unter Einstellungen → Geräte & Dienste → Helfer → Input Select mit diesen Optionen:
+        - aus
+        - tag
+        - nacht
+        - durchgang (nur nötig wenn Präsenzmelder verwendet wird)
+      selector:
+        entity:
+          domain: input_select
+    
+    # ========================================================================
+    # Optional: Präsenzmelder & Durchgangslicht
+    # WICHTIG: Wenn kein Durchgangslicht gewünscht, wähle denselben Sensor wie "Tag/Nacht Sensor"
+    # ========================================================================
+    
+    praesenzmmelder:
+      name: 🚶 Präsenzmelder für Durchgangslicht
+      description: |
+        Binärer Sensor für automatisches Durchgangslicht bei Bewegung.
+        
+        ⚙️ WICHTIG - Konfiguration im KNX-Präsenzmelder (ETS):
+        Der KNX-Sensor steuert selbst:
+        • Nachlaufzeit (empfohlen: 30-120 Sekunden)
+        • Helligkeitsschwelle (z.B. nur bei < 20 Lux triggern)
+        • Bewegungserkennung
+        
+        Das Blueprint reagiert nur auf das "on"/"off" Signal des Sensors.
+        
+        Funktionsweise:
+        • Präsenzmelder "on" → Durchgangslicht EIN
+        • Präsenzmelder "off" → Durchgangslicht AUS
+        
+        ⚠️ WENN DU KEIN DURCHGANGSLICHT MÖCHTEST:
+        Wähle hier EXAKT DENSELBEN SENSOR wie bei "Tag/Nacht Sensor" (weiter oben).
+        Das Blueprint erkennt dies automatisch und deaktiviert das Durchgangslicht.
+        
+        Beispiel:
+        - Tag/Nacht Sensor: binary_sensor.tag_nacht
+        - Präsenzmelder: binary_sensor.tag_nacht ← Gleich = Durchgangslicht deaktiviert
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+          multiple: false
+    
+    szene_durchgang:
+      name: 🌟 Durchgangsszene Tag (optional)
+      description: |
+        Szene für automatisches Durchgangslicht tagsüber (meist gedimmt).
+        
+        ⚠️ Wenn du KEIN Durchgangslicht möchtest: Lasse "Sonne" (sun.sun) ausgewählt!
+      default: sun.sun
+      selector:
+        entity:
+          domain: scene
+    
+    szene_durchgang_nacht:
+      name: 🌙 Durchgangsszene Nacht (optional)
+      description: |
+        Separate Szene für automatisches Durchgangslicht nachts (meist noch dunkler).
+        
+        Funktionsweise:
+        • Wenn konfiguriert: Diese Szene wird nachts verwendet
+        • Wenn NICHT konfiguriert (sun.sun): Normale Durchgangsszene wird auch nachts verwendet
+        
+        Typisch:
+        • Tag-Durchgang: 10-20% Helligkeit
+        • Nacht-Durchgang: 5-10% Helligkeit, warmweiß
+        
+        ⚠️ Wenn du die gleiche Szene Tag+Nacht willst: Lasse "Sonne" (sun.sun) ausgewählt!
+      default: sun.sun
+      selector:
+        entity:
+          domain: scene
+    
+    durchgang_override:
+      name: 🚫 Durchgangslicht Override (optional)
+      description: |
+        Schalter oder Media Player zum Deaktivieren des Durchgangslichts.
+        
+        Funktionsweise:
+        • Input Boolean/Switch: Status "on" → Kein Durchgangslicht
+        • Media Player: Status "on", "playing" oder "paused" → Kein Durchgangslicht
+        
+        Beispiele:
+        • input_boolean.gaestemodus (blockiert wenn "on")
+        • switch.durchgang_deaktivieren (blockiert wenn "on")
+        • media_player.wohnzimmer_tv (blockiert wenn an/spielt)
+        
+        ⚠️ Wenn du keinen Override brauchst: Lasse "Sonne" (sun.sun) ausgewählt!
+      default: sun.sun
+      selector:
+        entity:
+          filter:
+            - domain: input_boolean
+            - domain: switch
+            - domain: media_player
+          multiple: false
+    
+    # ========================================================================
+    # Optional: Langzeit-Abwesenheitserkennung (20min / 60min)
+    # ========================================================================
+    
+    praesenz_langzeit_1:
+      name: ⏲️ Präsenzmelder Langzeit 1 (optional)
+      description: |
+        Präsenzmelder-Entität die nach mittellanger Abwesenheit abschaltet.
+        
+        ⚠️ WICHTIG: Muss ein ANDERER Sensor als der Durchgangs-Präsenzmelder sein!
+        Verwende separate Ausgänge des KNX-Sensors mit unterschiedlichen Nachlaufzeiten.
+        
+        Funktionsweise:
+        • Bei Bewegung: Schaltet auf "on"
+        • Nach X Minuten keine Bewegung: Schaltet auf "off"
+        • "off"-Signal → Blueprint schaltet ausgewählte Entitäten aus
+        • Schaltet NUR aus wenn Status "aus" oder "durchgang" ist
+        • Schaltet NICHT aus bei aktiven Tag/Nacht-Szenen (schützt vor versehentlichem Ausschalten)
+        
+        Konfiguration der Nachlaufzeit in ETS:
+        • Empfohlen: 15-30 Minuten
+        • OHNE Helligkeitsabhängigkeit (immer aktiv)
+        
+        ⚠️ Wenn nicht benötigt: Wähle denselben Sensor wie "Tag/Nacht Sensor".
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+          multiple: false
+    
+    praesenz_langzeit_1_lichter:
+      name: 💡 Langzeit 1 - Auszuschaltende Entitäten (optional)
+      description: |
+        Entitäten die nach mittellanger Abwesenheit ausgeschaltet werden sollen.
+        
+        Funktioniert mit:
+        • Lichtern (light.*)
+        • Switches (switch.*)
+        • Anderen ausschaltbaren Entitäten
+        
+        Typischer Anwendungsfall:
+        Nach mittellanger Abwesenheit → Einzelne Lampen/Geräte aus
+        (Hauptbeleuchtung bleibt noch an)
+        
+        Beispiele:
+        • light.wohnzimmer_stehlampe
+        • switch.steckdose_leselampe
+        • light.wohnzimmer_led_strip
+        
+        ⚠️ Wenn nicht benötigt: Leer lassen.
+      default: {}
+      selector:
+        target:
+          entity:
+            domain:
+              - light
+              - switch
+    
+    praesenz_langzeit_2:
+      name: ⏳ Präsenzmelder Langzeit 2 (optional)
+      description: |
+        Präsenzmelder-Entität die nach sehr langer Abwesenheit abschaltet.
+        
+        ⚠️ WICHTIG: Muss ein ANDERER Sensor als der Durchgangs-Präsenzmelder sein!
+        Verwende separate Ausgänge des KNX-Sensors mit unterschiedlichen Nachlaufzeiten.
+        
+        Funktionsweise:
+        • Bei Bewegung: Schaltet auf "on"
+        • Nach X Minuten keine Bewegung: Schaltet auf "off"
+        • "off"-Signal → Blueprint schaltet ALLE Lichter aus (außer ausgeschlossene)
+        • Schaltet NUR aus wenn Status "aus" oder "durchgang" ist
+        • Schaltet NICHT aus bei aktiven Tag/Nacht-Szenen (schützt vor versehentlichem Ausschalten)
+        
+        Konfiguration der Nachlaufzeit in ETS:
+        • Empfohlen: 45-90 Minuten
+        • OHNE Helligkeitsabhängigkeit (immer aktiv)
+        
+        Anwendungsfall:
+        Sicherheit - nach sehr langer Zeit ist garantiert niemand mehr da.
+        
+        ⚠️ Wenn nicht benötigt: Wähle denselben Sensor wie "Tag/Nacht Sensor".
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+          multiple: false
+    
+    praesenz_langzeit_2_exclude_labels:
+      name: 🏷️ Langzeit 2 - Ausgeschlossene Labels (optional)
+      description: |
+        Labels von Lichtern die bei Langzeit 2 NICHT ausgeschaltet werden sollen.
+        
+        So funktioniert's:
+        1. Vergib Labels an Lichter in Home Assistant
+        2. Wähle hier die Labels aus dem Dropdown aus
+        3. Lichter mit diesen Labels bleiben bei Langzeit 2 an
+        
+        Anwendungsfälle:
+        • Sicherheitsbeleuchtung (Label: "sicherheit")
+        • Außenbeleuchtung (Label: "außen")
+        • Wichtige Grundbeleuchtung (Label: "wichtig")
+        
+        Funktionsweise:
+        Alle Lichter der Lichtgruppe werden ausgeschaltet,
+        AUSSER diejenigen mit den hier ausgewählten Labels.
+        
+        ⚠️ Wenn alle Lichter ausgeschaltet werden sollen: Keine Labels auswählen.
+      default: []
+      selector:
+        label:
+          multiple: true
+
+mode: restart
+max_exceeded: silent
+
+trigger:
+  - platform: event
+    event_type: knx_event
+    event_data:
+      destination: !input taster_tag_ga
+    id: tag
+  
+  - platform: event
+    event_type: knx_event
+    event_data:
+      destination: !input taster_nacht_ga
+    id: nacht
+  
+  - platform: event
+    event_type: knx_event
+    event_data:
+      destination: !input taster_auto_ga
+    id: auto
+  
+  - platform: event
+    event_type: knx_event
+    event_data:
+      destination: !input taster_aus_ga
+    id: alles_aus
+  
+  - platform: state
+    entity_id: !input praesenzmmelder
+    to: "on"
+    id: praesenz_on
+  
+  - platform: state
+    entity_id: !input praesenzmmelder
+    to: "off"
+    id: praesenz_off
+  
+  - platform: state
+    entity_id: !input praesenz_langzeit_1
+    to: "off"
+    id: langzeit_1_off
+  
+  - platform: state
+    entity_id: !input praesenz_langzeit_2
+    to: "off"
+    id: langzeit_2_off
+
+variables:
+  praesenzmmelder: !input praesenzmmelder
+  tag_nacht_sensor: !input tag_nacht_sensor
+  durchgang_override: !input durchgang_override
+  szene_durchgang: !input szene_durchgang
+  szene_durchgang_nacht: !input szene_durchgang_nacht
+  szene_tag: !input szene_tag
+  szene_nacht: !input szene_nacht
+  status_helper: !input status_helper
+  taster_aus_ga: !input taster_aus_ga
+  status_rueckmeldung_ga: !input status_rueckmeldung_ga
+  praesenz_langzeit_1: !input praesenz_langzeit_1
+  praesenz_langzeit_1_lichter: !input praesenz_langzeit_1_lichter
+  praesenz_langzeit_2: !input praesenz_langzeit_2
+  praesenz_langzeit_2_exclude_labels: !input praesenz_langzeit_2_exclude_labels
+
+action:
+  - choose:
+      # Taster Tagbeleuchtung
+      - conditions:
+          - condition: trigger
+            id: tag
+        sequence:
+          - if:
+              # Tagszene ist bereits aktiv
+              - condition: state
+                entity_id: !input status_helper
+                state: "tag"
+            then:
+              # Szenenbasiertes Ausschalten - nur Lichter der Tagszene
+              - variables:
+                  lights_to_turn_off: "{{ state_attr(szene_tag, 'entity_id') or [] }}"
+              - if:
+                  - condition: template
+                    value_template: "{{ lights_to_turn_off | length > 0 }}"
+                then:
+                  - service: homeassistant.turn_off
+                    target:
+                      entity_id: "{{ lights_to_turn_off }}"
+              - service: input_select.select_option
+                target:
+                  entity_id: !input status_helper
+                data:
+                  option: "aus"
+              # KNX Status-Rückmeldung senden
+              - if:
+                  - condition: template
+                    value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                then:
+                  - service: knx.send
+                    data:
+                      address: "{{ status_rueckmeldung_ga }}"
+                      payload: 0
+            else:
+              # Tagszene aktivieren (direkter Wechsel möglich, beendet auch Durchgangsmodus)
+              - service: scene.turn_on
+                target:
+                  entity_id: !input szene_tag
+              - service: input_select.select_option
+                target:
+                  entity_id: !input status_helper
+                data:
+                  option: "tag"
+              # KNX Status-Rückmeldung senden
+              - if:
+                  - condition: template
+                    value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                then:
+                  - service: knx.send
+                    data:
+                      address: "{{ status_rueckmeldung_ga }}"
+                      payload: 1
+      
+      # Taster Nachtbeleuchtung
+      - conditions:
+          - condition: trigger
+            id: nacht
+        sequence:
+          - if:
+              # Nachtszene ist bereits aktiv
+              - condition: state
+                entity_id: !input status_helper
+                state: "nacht"
+            then:
+              # Szenenbasiertes Ausschalten - nur Lichter der Nachtszene
+              - variables:
+                  lights_to_turn_off: "{{ state_attr(szene_nacht, 'entity_id') or [] }}"
+              - if:
+                  - condition: template
+                    value_template: "{{ lights_to_turn_off | length > 0 }}"
+                then:
+                  - service: homeassistant.turn_off
+                    target:
+                      entity_id: "{{ lights_to_turn_off }}"
+              - service: input_select.select_option
+                target:
+                  entity_id: !input status_helper
+                data:
+                  option: "aus"
+              # KNX Status-Rückmeldung senden
+              - if:
+                  - condition: template
+                    value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                then:
+                  - service: knx.send
+                    data:
+                      address: "{{ status_rueckmeldung_ga }}"
+                      payload: 0
+            else:
+              # Nachtszene aktivieren (direkter Wechsel möglich, beendet auch Durchgangsmodus)
+              - service: scene.turn_on
+                target:
+                  entity_id: !input szene_nacht
+              - service: input_select.select_option
+                target:
+                  entity_id: !input status_helper
+                data:
+                  option: "nacht"
+              # KNX Status-Rückmeldung senden
+              - if:
+                  - condition: template
+                    value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                then:
+                  - service: knx.send
+                    data:
+                      address: "{{ status_rueckmeldung_ga }}"
+                      payload: 1
+      
+      # Taster Automatik (Tag/Nacht abhängig)
+      - conditions:
+          - condition: trigger
+            id: auto
+        sequence:
+          - if:
+              # Nacht-Modus (Sensor ist on)
+              - condition: state
+                entity_id: !input tag_nacht_sensor
+                state: "on"
+            then:
+              - if:
+                  # Nachtszene ist bereits aktiv
+                  - condition: state
+                    entity_id: !input status_helper
+                    state: "nacht"
+                then:
+                  # Szenenbasiertes Ausschalten - nur Lichter der Nachtszene
+                  - variables:
+                      lights_to_turn_off: "{{ state_attr(szene_nacht, 'entity_id') or [] }}"
+                  - if:
+                      - condition: template
+                        value_template: "{{ lights_to_turn_off | length > 0 }}"
+                    then:
+                      - service: homeassistant.turn_off
+                        target:
+                          entity_id: "{{ lights_to_turn_off }}"
+                  - service: input_select.select_option
+                    target:
+                      entity_id: !input status_helper
+                    data:
+                      option: "aus"
+                  # KNX Status-Rückmeldung senden
+                  - if:
+                      - condition: template
+                        value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                    then:
+                      - service: knx.send
+                        data:
+                          address: "{{ status_rueckmeldung_ga }}"
+                          payload: 0
+                else:
+                  # Nachtszene aktivieren (beendet auch Durchgangsmodus)
+                  - service: scene.turn_on
+                    target:
+                      entity_id: !input szene_nacht
+                  - service: input_select.select_option
+                    target:
+                      entity_id: !input status_helper
+                    data:
+                      option: "nacht"
+                  # KNX Status-Rückmeldung senden
+                  - if:
+                      - condition: template
+                        value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                    then:
+                      - service: knx.send
+                        data:
+                          address: "{{ status_rueckmeldung_ga }}"
+                          payload: 1
+            else:
+              # Tag-Modus (Sensor ist off)
+              - if:
+                  # Tagszene ist bereits aktiv
+                  - condition: state
+                    entity_id: !input status_helper
+                    state: "tag"
+                then:
+                  # Szenenbasiertes Ausschalten - nur Lichter der Tagszene
+                  - variables:
+                      lights_to_turn_off: "{{ state_attr(szene_tag, 'entity_id') or [] }}"
+                  - if:
+                      - condition: template
+                        value_template: "{{ lights_to_turn_off | length > 0 }}"
+                    then:
+                      - service: homeassistant.turn_off
+                        target:
+                          entity_id: "{{ lights_to_turn_off }}"
+                  - service: input_select.select_option
+                    target:
+                      entity_id: !input status_helper
+                    data:
+                      option: "aus"
+                  # KNX Status-Rückmeldung senden
+                  - if:
+                      - condition: template
+                        value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                    then:
+                      - service: knx.send
+                        data:
+                          address: "{{ status_rueckmeldung_ga }}"
+                          payload: 0
+                else:
+                  # Tagszene aktivieren (beendet auch Durchgangsmodus)
+                  - service: scene.turn_on
+                    target:
+                      entity_id: !input szene_tag
+                  - service: input_select.select_option
+                    target:
+                      entity_id: !input status_helper
+                    data:
+                      option: "tag"
+                  # KNX Status-Rückmeldung senden
+                  - if:
+                      - condition: template
+                        value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                    then:
+                      - service: knx.send
+                        data:
+                          address: "{{ status_rueckmeldung_ga }}"
+                          payload: 1
+      
+      # Taster Alles Aus
+      - conditions:
+          - condition: trigger
+            id: alles_aus
+          # Nur wenn eine echte GA konfiguriert ist (nicht der Default)
+          - condition: template
+            value_template: "{{ taster_aus_ga != '31/7/255' }}"
+        sequence:
+          # Schalte alle Entitäten aus, egal welcher Status
+          - service: homeassistant.turn_off
+            target:
+              entity_id: !input licht_gruppe
+          - service: input_select.select_option
+            target:
+              entity_id: !input status_helper
+            data:
+              option: "aus"
+          # KNX Status-Rückmeldung senden
+          - if:
+              - condition: template
+                value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+            then:
+              - service: knx.send
+                data:
+                  address: "{{ status_rueckmeldung_ga }}"
+                  payload: 0
+      
+      # Präsenzmelder EIN - Durchgangslicht aktivieren
+      - conditions:
+          - condition: trigger
+            id: praesenz_on
+          # Nur wenn Präsenzmelder NICHT der Tag/Nacht-Sensor ist (dann ist es deaktiviert)
+          - condition: template
+            value_template: "{{ praesenzmmelder != tag_nacht_sensor }}"
+          # Und Durchgangsszene konfiguriert ist (nicht sun.sun)
+          - condition: template
+            value_template: "{{ szene_durchgang != 'sun.sun' }}"
+        sequence:
+          # Prüfe ob Override-Schalter das Durchgangslicht blockiert
+          - if:
+              - condition: template
+                value_template: >
+                  {% if durchgang_override != 'sun.sun' %}
+                    {% set domain = durchgang_override.split('.')[0] %}
+                    {% if domain == 'media_player' %}
+                      {{ states(durchgang_override) in ['on', 'playing', 'paused'] }}
+                    {% else %}
+                      {{ is_state(durchgang_override, 'on') }}
+                    {% endif %}
+                  {% else %}
+                    false
+                  {% endif %}
+            then:
+              # Override aktiv - nichts tun
+              - stop: "Durchgangslicht Override ist aktiv"
+          
+          # Durchgangslicht aktivieren
+          - if:
+              # Wenn Licht aus ist ODER bereits im Durchgangsmodus
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity_id: !input status_helper
+                    state: "aus"
+                  - condition: state
+                    entity_id: !input status_helper
+                    state: "durchgang"
+            then:
+              # Wähle richtige Durchgangsszene basierend auf Tag/Nacht
+              - if:
+                  # Nacht-Modus (Sensor ist on) UND Nacht-Durchgangsszene konfiguriert
+                  - condition: state
+                    entity_id: !input tag_nacht_sensor
+                    state: "on"
+                  - condition: template
+                    value_template: "{{ szene_durchgang_nacht != 'sun.sun' }}"
+                then:
+                  # Nacht-Durchgangsszene aktivieren
+                  - service: scene.turn_on
+                    data:
+                      entity_id: !input szene_durchgang_nacht
+                else:
+                  # Tag-Durchgangsszene aktivieren (oder Standard wenn Nacht-Szene nicht konfiguriert)
+                  - service: scene.turn_on
+                    data:
+                      entity_id: !input szene_durchgang
+              - service: input_select.select_option
+                target:
+                  entity_id: !input status_helper
+                data:
+                  option: "durchgang"
+              # KNX Status-Rückmeldung senden
+              - if:
+                  - condition: template
+                    value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                then:
+                  - service: knx.send
+                    data:
+                      address: "{{ status_rueckmeldung_ga }}"
+                      payload: 1
+      
+      # Präsenzmelder AUS - Durchgangslicht ausschalten
+      - conditions:
+          - condition: trigger
+            id: praesenz_off
+          # Nur wenn im Durchgangsmodus
+          - condition: state
+            entity_id: !input status_helper
+            state: "durchgang"
+          # Zusätzliche Sicherheit: NICHT ausschalten wenn Tag/Nacht aktiv
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: !input status_helper
+                state:
+                  - "tag"
+                  - "nacht"
+        sequence:
+          # Szenenbasiertes Ausschalten - ermittle welche Durchgangsszene aktiv war
+          - variables:
+              lights_to_turn_off: >
+                {% if is_state(tag_nacht_sensor, 'on') and szene_durchgang_nacht != 'sun.sun' %}
+                  {{ state_attr(szene_durchgang_nacht, 'entity_id') or [] }}
+                {% else %}
+                  {{ state_attr(szene_durchgang, 'entity_id') or [] }}
+                {% endif %}
+          - if:
+              - condition: template
+                value_template: "{{ lights_to_turn_off | length > 0 }}"
+            then:
+              - service: homeassistant.turn_off
+                target:
+                  entity_id: "{{ lights_to_turn_off }}"
+          - service: input_select.select_option
+            target:
+              entity_id: !input status_helper
+            data:
+              option: "aus"
+          # KNX Status-Rückmeldung senden
+          - if:
+              - condition: template
+                value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+            then:
+              - service: knx.send
+                data:
+                  address: "{{ status_rueckmeldung_ga }}"
+                  payload: 0
+      
+      # Langzeit-Präsenzmelder 1 - Ausgewählte Lichter ausschalten
+      - conditions:
+          - condition: trigger
+            id: langzeit_1_off
+          # Nur wenn Langzeit-Sensor NICHT der Tag/Nacht-Sensor ist (dann ist es deaktiviert)
+          - condition: template
+            value_template: "{{ praesenz_langzeit_1 != tag_nacht_sensor }}"
+          # Nur wenn Langzeit-Sensor NICHT der Durchgangs-Sensor ist (sonst Konflikt)
+          - condition: template
+            value_template: "{{ praesenz_langzeit_1 != praesenzmmelder }}"
+          # NUR wenn Status "aus" oder "durchgang" (NICHT bei aktiven Tag/Nacht-Szenen!)
+          - condition: template
+            value_template: "{{ states(status_helper) in ['aus', 'durchgang'] }}"
+          # Nur wenn Lichter ausgewählt wurden
+          - condition: template
+            value_template: "{{ praesenz_langzeit_1_lichter.entity_id is defined and praesenz_langzeit_1_lichter.entity_id | length > 0 }}"
+        sequence:
+          # Ausgewählte Entitäten ausschalten
+          - service: homeassistant.turn_off
+            target: !input praesenz_langzeit_1_lichter
+          # Optional: Status-Rückmeldung wenn alle Lichter aus sind
+          - if:
+              # Prüfe ob Hauptlichtgruppe auch aus ist
+              - condition: state
+                entity_id: !input licht_gruppe
+                state: "off"
+            then:
+              # Status Helper auf "aus" setzen
+              - service: input_select.select_option
+                target:
+                  entity_id: !input status_helper
+                data:
+                  option: "aus"
+              # KNX Status-Rückmeldung senden
+              - if:
+                  - condition: template
+                    value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+                then:
+                  - service: knx.send
+                    data:
+                      address: "{{ status_rueckmeldung_ga }}"
+                      payload: 0
+      
+      # Langzeit-Präsenzmelder 2 - Szenenbasiertes Ausschalten (außer ausgeschlossene Labels)
+      - conditions:
+          - condition: trigger
+            id: langzeit_2_off
+          # Nur wenn Langzeit-Sensor NICHT der Tag/Nacht-Sensor ist (dann ist es deaktiviert)
+          - condition: template
+            value_template: "{{ praesenz_langzeit_2 != tag_nacht_sensor }}"
+          # Nur wenn Langzeit-Sensor NICHT der Durchgangs-Sensor ist (sonst Konflikt)
+          - condition: template
+            value_template: "{{ praesenz_langzeit_2 != praesenzmmelder }}"
+          # NUR wenn Status "aus" oder "durchgang" (NICHT bei aktiven Tag/Nacht-Szenen!)
+          - condition: template
+            value_template: "{{ states(status_helper) in ['aus', 'durchgang'] }}"
+        sequence:
+          # Ermittle welche Szene aktiv ist und hole deren Lichter
+          - variables:
+              scene_lights: >
+                {% set current_status = states(status_helper) %}
+                {% if current_status == 'tag' %}
+                  {{ state_attr(szene_tag, 'entity_id') or [] }}
+                {% elif current_status == 'nacht' %}
+                  {{ state_attr(szene_nacht, 'entity_id') or [] }}
+                {% elif current_status == 'durchgang' %}
+                  {% if is_state(tag_nacht_sensor, 'on') and szene_durchgang_nacht != 'sun.sun' %}
+                    {{ state_attr(szene_durchgang_nacht, 'entity_id') or [] }}
+                  {% else %}
+                    {{ state_attr(szene_durchgang, 'entity_id') or [] }}
+                  {% endif %}
+                {% else %}
+                  []
+                {% endif %}
+              lights_to_turn_off: >
+                {% set ns = namespace(lights=[]) %}
+                {% set exclude_labels = praesenz_langzeit_2_exclude_labels %}
+                {% set scene_lights_list = scene_lights %}
+                {% for entity in scene_lights_list %}
+                  {% set entity_labels = state_attr(entity, 'labels') or [] %}
+                  {% set has_excluded_label = namespace(found=false) %}
+                  {% for label in exclude_labels %}
+                    {% if label in entity_labels %}
+                      {% set has_excluded_label.found = true %}
+                    {% endif %}
+                  {% endfor %}
+                  {% if not has_excluded_label.found %}
+                    {% set ns.lights = ns.lights + [entity] %}
+                  {% endif %}
+                {% endfor %}
+                {{ ns.lights }}
+          
+          # Schalte gefilterte Entitäten aus (wenn welche übrig sind)
+          - if:
+              - condition: template
+                value_template: "{{ lights_to_turn_off | length > 0 }}"
+            then:
+              - service: homeassistant.turn_off
+                target:
+                  entity_id: "{{ lights_to_turn_off }}"
+          
+          # Status Helper auf "aus" setzen
+          - service: input_select.select_option
+            target:
+              entity_id: !input status_helper
+            data:
+              option: "aus"
+          # KNX Status-Rückmeldung senden
+          - if:
+              - condition: template
+                value_template: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+            then:
+              - service: knx.send
+                data:
+                  address: "{{ status_rueckmeldung_ga }}"
+                  payload: 0

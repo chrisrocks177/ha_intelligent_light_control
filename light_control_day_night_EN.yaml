@@ -1,0 +1,825 @@
+blueprint:
+  name: Light Control with Day and Night Mode
+  description: |
+    v1.1.0 - Professional KNX light control with scene-based switching
+    
+    Controls lights with three buttons: Day lighting, Night lighting, and Automatic selection.
+    Toggle function: If the scene is already active, all scene lights are turned off.
+    
+    NEW in v1.1.0: Scene-based switching
+    • Toggle only turns off lights that are part of the active scene
+    • Solves shared-light problem (light illuminates multiple rooms)
+    • More precise and flexible
+    
+    ⚠️ IMPORTANT: Scenes must contain ALL relevant lights!
+    
+    Optional: Fourth button for direct off (regardless of status).
+    Optional: Passage lighting with presence detection.
+    
+    ⚙️ KNX Presence Sensor Control:
+    The KNX sensor controls itself:
+    • Follow-up time (how long light stays on)
+    • Brightness threshold (only trigger in darkness)
+    • Motion detection
+    
+    Blueprint only reacts to presence sensor on/off:
+    • Presence sensor "on" → Passage light ON
+    • Presence sensor "off" → Passage light OFF
+    
+    IMPORTANT - Optional Fields:
+    If you don't want to use certain features (e.g. no passage lighting),
+    simply leave "Sun" (sun.sun) or "31/7/255" selected in the corresponding fields.
+    The Blueprint recognizes this as "not configured" and skips the feature.
+  domain: automation
+  input:
+    # ========================================================================
+    # KNX Button Group Addresses
+    # Format: Main/Middle/Sub (e.g. "1/2/3")
+    # ========================================================================
+    
+    taster_tag_ga:
+      name: 🔆 Button Day Lighting
+      description: |
+        KNX group address in format: Main/Middle/Sub
+        Example: 1/2/1
+      selector:
+        text:
+    
+    taster_nacht_ga:
+      name: 🌙 Button Night Lighting
+      description: |
+        KNX group address in format: Main/Middle/Sub
+        Example: 1/2/2
+      selector:
+        text:
+    
+    taster_auto_ga:
+      name: 🔄 Button Automatic
+      description: |
+        KNX group address in format: Main/Middle/Sub
+        Example: 1/2/3
+      selector:
+        text:
+    
+    taster_aus_ga:
+      name: ⏻ Button All Off (optional)
+      description: |
+        KNX group address for "All Off" - always turns lights off.
+        Format: Main/Middle/Sub
+        Example: 1/2/10
+        
+        If not needed: Leave "31/7/255" (will be ignored).
+      default: "31/7/255"
+      selector:
+        text:
+    
+    status_rueckmeldung_ga:
+      name: 📡 Status Feedback (optional)
+      description: |
+        KNX group address for status feedback to KNX bus.
+        Format: Main/Middle/Sub
+        Example: 1/2/20
+        
+        Functionality:
+        • Light ON (Day/Night/Passage) → Sends "1" (On)
+        • Light OFF → Sends "0" (Off)
+        
+        Useful for:
+        • Status LEDs on KNX buttons
+        • KNX visualization
+        • Integration with other KNX devices
+        
+        If not needed: Leave "31/7/255" (will be ignored).
+      default: "31/7/255"
+      selector:
+        text:
+    
+    # ========================================================================
+    # Scenes and Sensors
+    # ========================================================================
+    
+    tag_nacht_sensor:
+      name: 🌓 Day/Night Sensor
+      description: |
+        Binary sensor to distinguish between day and night.
+        "on" = Night | "off" = Day
+      selector:
+        entity:
+          domain: binary_sensor
+    
+    szene_tag:
+      name: ☀️ Scene Day Lighting
+      description: Scene to be activated during day operation
+      selector:
+        entity:
+          domain: scene
+    
+    szene_nacht:
+      name: 🌛 Scene Night Lighting
+      description: Scene to be activated during night operation
+      selector:
+        entity:
+          domain: scene
+    
+    licht_gruppe:
+      name: 💡 Light Group
+      description: |
+        Light group with all lamps in the room.
+        
+        Usage:
+        • "All Off" button (turns off all lights)
+        • Optional use in other automations
+        
+        ⚠️ IMPORTANT from v1.1.0:
+        Toggle functions use scene lights, not the light group!
+        The light group is only needed for the "All Off" button.
+      selector:
+        entity:
+          domain: light
+    
+    status_helper:
+      name: 📊 Status Helper
+      description: |
+        Input Select Helper for status management.
+        Options: off, day, night, passage
+        
+        Create under Settings → Devices & Services → Helpers → Input Select with these options:
+        - off
+        - day
+        - night
+        - passage (only needed if presence sensor is used)
+      selector:
+        entity:
+          domain: input_select
+    
+    # ========================================================================
+    # Optional: Passage Lighting with Presence Sensor
+    # ========================================================================
+    
+    praesenz_sensor:
+      name: 🚶 Presence Sensor (optional)
+      description: |
+        Binary sensor that detects presence.
+        
+        Leave "sun.sun" if you don't want to use this feature.
+        
+        IMPORTANT: Configure in the KNX sensor:
+        • Follow-up time (how long light stays on)
+        • Brightness threshold (only trigger in darkness)
+        
+        The Blueprint only reacts to on/off of the sensor.
+      default: sun.sun
+      selector:
+        entity:
+          domain: binary_sensor
+    
+    szene_durchgang_tag:
+      name: 🚶☀️ Scene Passage Day (optional)
+      description: |
+        Scene for passage lighting during day.
+        Typically dimmed or fewer lights than main scene.
+        
+        Leave "sun.sun" if you don't want to use this feature.
+      default: sun.sun
+      selector:
+        entity:
+          domain: scene
+    
+    szene_durchgang_nacht:
+      name: 🚶🌙 Scene Passage Night (optional)
+      description: |
+        Scene for passage lighting during night.
+        Typically very dimmed or minimal lights.
+        
+        Leave "sun.sun" if you don't want to use this feature.
+      default: sun.sun
+      selector:
+        entity:
+          domain: scene
+    
+    override_entity:
+      name: 🔒 Override Entity (optional)
+      description: |
+        Entity that blocks passage lighting when "on".
+        
+        Example use cases:
+        • TV is on (media_player) → No passage lighting
+        • Sleep mode active (input_boolean) → No passage lighting
+        • Guest mode active (input_boolean) → No passage lighting
+        
+        State must be "on" to block. At "off" or "unavailable", passage lighting works normally.
+        
+        Leave "sun.sun" if you don't want to use this feature.
+      default: sun.sun
+      selector:
+        entity: {}
+    
+    # ========================================================================
+    # Optional: Long-term Absence Detection
+    # ========================================================================
+    
+    praesenz_langzeit_1:
+      name: ⏱️ Presence Long-term 1 (optional)
+      description: |
+        Presence sensor for medium-term absence detection (e.g. 20 minutes).
+        
+        Turns off selected lights when no presence for a long time.
+        Example: Reading lamp, floor lamp off, but ceiling light stays on.
+        
+        Configure delay time in the presence sensor.
+        
+        Leave "sun.sun" if you don't want to use this feature.
+      default: sun.sun
+      selector:
+        entity:
+          domain: binary_sensor
+    
+    praesenz_langzeit_1_lichter:
+      name: 💡 Long-term 1 Lights (optional)
+      description: |
+        Lights to turn off on long-term absence (level 1).
+        
+        Can be:
+        • Individual lights (light.reading_lamp)
+        • Switches (switch.floor_lamp)
+        • Light groups
+        
+        Ceiling lights or main lighting usually remain on.
+        
+        Leave empty if you don't want to use this feature.
+      default: {}
+      selector:
+        target:
+          entity:
+            - domain: light
+            - domain: switch
+    
+    praesenz_langzeit_2:
+      name: ⏲️ Presence Long-term 2 (optional)
+      description: |
+        Presence sensor for long absence detection (e.g. 60 minutes).
+        
+        Turns off ALL lights in the scene when no presence for a very long time.
+        Exception: Lights with excluded labels remain on.
+        
+        Configure delay time in the presence sensor.
+        
+        Leave "sun.sun" if you don't want to use this feature.
+      default: sun.sun
+      selector:
+        entity:
+          domain: binary_sensor
+    
+    ausschluss_labels:
+      name: 🏷️ Exclusion Labels (optional)
+      description: |
+        Labels of lights that should NOT be turned off on long-term absence (level 2).
+        
+        Use case: Security lighting should remain on:
+        • "security" label → These lights remain on
+        • "permanent" label → These lights remain on
+        
+        All other lights in the active scene are turned off.
+        
+        Leave empty if you don't want to use this feature.
+      default: []
+      selector:
+        label:
+          multiple: true
+
+# ========================================================================
+# Variables - Available in all actions
+# ========================================================================
+variables:
+  # Input values
+  tag_nacht_sensor: !input tag_nacht_sensor
+  licht_gruppe: !input licht_gruppe
+  status_helper: !input status_helper
+  
+  # Scenes
+  szene_tag: !input szene_tag
+  szene_nacht: !input szene_nacht
+  
+  # KNX addresses
+  taster_tag_ga: !input taster_tag_ga
+  taster_nacht_ga: !input taster_nacht_ga
+  taster_auto_ga: !input taster_auto_ga
+  taster_aus_ga: !input taster_aus_ga
+  status_rueckmeldung_ga: !input status_rueckmeldung_ga
+  
+  # Optional: Passage lighting
+  praesenz_sensor: !input praesenz_sensor
+  szene_durchgang_tag: !input szene_durchgang_tag
+  szene_durchgang_nacht: !input szene_durchgang_nacht
+  override_entity: !input override_entity
+  
+  # Optional: Long-term absence
+  praesenz_langzeit_1: !input praesenz_langzeit_1
+  praesenz_langzeit_1_lichter: !input praesenz_langzeit_1_lichter
+  praesenz_langzeit_2: !input praesenz_langzeit_2
+  ausschluss_labels: !input ausschluss_labels
+  
+  # Helper variables
+  is_praesenz_konfiguriert: "{{ praesenz_sensor != 'sun.sun' }}"
+  is_override_konfiguriert: "{{ override_entity != 'sun.sun' }}"
+  is_langzeit_1_konfiguriert: "{{ praesenz_langzeit_1 != 'sun.sun' }}"
+  is_langzeit_2_konfiguriert: "{{ praesenz_langzeit_2 != 'sun.sun' }}"
+  is_status_rueckmeldung_konfiguriert: "{{ status_rueckmeldung_ga != '31/7/255' }}"
+
+# ========================================================================
+# Triggers - Events that start the automation
+# ========================================================================
+trigger:
+  # --- KNX Buttons ---
+  - platform: event
+    event_type: knx_event
+    event_data:
+      destination: !input taster_tag_ga
+    id: taster_tag
+  
+  - platform: event
+    event_type: knx_event
+    event_data:
+      destination: !input taster_nacht_ga
+    id: taster_nacht
+  
+  - platform: event
+    event_type: knx_event
+    event_data:
+      destination: !input taster_auto_ga
+    id: taster_auto
+  
+  - platform: event
+    event_type: knx_event
+    event_data:
+      destination: !input taster_aus_ga
+    id: taster_aus
+  
+  # --- Presence Sensor for Passage Lighting ---
+  - platform: state
+    entity_id: !input praesenz_sensor
+    to: "on"
+    id: praesenz_on
+  
+  - platform: state
+    entity_id: !input praesenz_sensor
+    to: "off"
+    id: praesenz_off
+  
+  # --- Long-term Absence Sensors ---
+  - platform: state
+    entity_id: !input praesenz_langzeit_1
+    to: "off"
+    id: langzeit_1_off
+  
+  - platform: state
+    entity_id: !input praesenz_langzeit_2
+    to: "off"
+    id: langzeit_2_off
+
+# ========================================================================
+# Actions - What happens when triggered
+# ========================================================================
+action:
+  - choose:
+      # ====================================================================
+      # Day Button - Toggle Day Scene
+      # ====================================================================
+      - conditions:
+          - condition: trigger
+            id: taster_tag
+        sequence:
+          - choose:
+              # Day scene is already active → Turn off scene lights
+              - conditions:
+                  - condition: state
+                    entity_id: !input status_helper
+                    state: "day"
+                sequence:
+                  # Get lights from day scene
+                  - variables:
+                      lights_to_turn_off: "{{ state_attr(szene_tag, 'entity_id') or [] }}"
+                  
+                  # Turn off scene lights
+                  - service: homeassistant.turn_off
+                    target:
+                      entity_id: "{{ lights_to_turn_off }}"
+                  
+                  # Set status to off
+                  - service: input_select.select_option
+                    target:
+                      entity_id: !input status_helper
+                    data:
+                      option: "off"
+                  
+                  # Send status feedback (if configured)
+                  - if:
+                      - condition: template
+                        value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+                    then:
+                      - service: knx.send
+                        data:
+                          address: !input status_rueckmeldung_ga
+                          payload: 0
+            
+            # Other status → Activate day scene
+            default:
+              # Activate day scene
+              - service: scene.turn_on
+                target:
+                  entity_id: !input szene_tag
+              
+              # Set status to day
+              - service: input_select.select_option
+                target:
+                  entity_id: !input status_helper
+                data:
+                  option: "day"
+              
+              # Send status feedback (if configured)
+              - if:
+                  - condition: template
+                    value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+                then:
+                  - service: knx.send
+                    data:
+                      address: !input status_rueckmeldung_ga
+                      payload: 1
+      
+      # ====================================================================
+      # Night Button - Toggle Night Scene
+      # ====================================================================
+      - conditions:
+          - condition: trigger
+            id: taster_nacht
+        sequence:
+          - choose:
+              # Night scene is already active → Turn off scene lights
+              - conditions:
+                  - condition: state
+                    entity_id: !input status_helper
+                    state: "night"
+                sequence:
+                  # Get lights from night scene
+                  - variables:
+                      lights_to_turn_off: "{{ state_attr(szene_nacht, 'entity_id') or [] }}"
+                  
+                  # Turn off scene lights
+                  - service: homeassistant.turn_off
+                    target:
+                      entity_id: "{{ lights_to_turn_off }}"
+                  
+                  # Set status to off
+                  - service: input_select.select_option
+                    target:
+                      entity_id: !input status_helper
+                    data:
+                      option: "off"
+                  
+                  # Send status feedback (if configured)
+                  - if:
+                      - condition: template
+                        value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+                    then:
+                      - service: knx.send
+                        data:
+                          address: !input status_rueckmeldung_ga
+                          payload: 0
+            
+            # Other status → Activate night scene
+            default:
+              # Activate night scene
+              - service: scene.turn_on
+                target:
+                  entity_id: !input szene_nacht
+              
+              # Set status to night
+              - service: input_select.select_option
+                target:
+                  entity_id: !input status_helper
+                data:
+                  option: "night"
+              
+              # Send status feedback (if configured)
+              - if:
+                  - condition: template
+                    value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+                then:
+                  - service: knx.send
+                    data:
+                      address: !input status_rueckmeldung_ga
+                      payload: 1
+      
+      # ====================================================================
+      # Auto Button - Toggle Automatic Day/Night Selection
+      # ====================================================================
+      - conditions:
+          - condition: trigger
+            id: taster_auto
+        sequence:
+          - choose:
+              # Day or night scene is active → Turn off scene lights
+              - conditions:
+                  - condition: or
+                    conditions:
+                      - condition: state
+                        entity_id: !input status_helper
+                        state: "day"
+                      - condition: state
+                        entity_id: !input status_helper
+                        state: "night"
+                sequence:
+                  # Determine active scene
+                  - variables:
+                      active_scene: >-
+                        {% if is_state(status_helper, 'day') %}
+                          {{ szene_tag }}
+                        {% else %}
+                          {{ szene_nacht }}
+                        {% endif %}
+                      lights_to_turn_off: "{{ state_attr(active_scene, 'entity_id') or [] }}"
+                  
+                  # Turn off scene lights
+                  - service: homeassistant.turn_off
+                    target:
+                      entity_id: "{{ lights_to_turn_off }}"
+                  
+                  # Set status to off
+                  - service: input_select.select_option
+                    target:
+                      entity_id: !input status_helper
+                    data:
+                      option: "off"
+                  
+                  # Send status feedback (if configured)
+                  - if:
+                      - condition: template
+                        value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+                    then:
+                      - service: knx.send
+                        data:
+                          address: !input status_rueckmeldung_ga
+                          payload: 0
+            
+            # Other status → Activate scene based on day/night sensor
+            default:
+              - choose:
+                  # Night (sensor = on) → Activate night scene
+                  - conditions:
+                      - condition: state
+                        entity_id: !input tag_nacht_sensor
+                        state: "on"
+                    sequence:
+                      - service: scene.turn_on
+                        target:
+                          entity_id: !input szene_nacht
+                      - service: input_select.select_option
+                        target:
+                          entity_id: !input status_helper
+                        data:
+                          option: "night"
+                
+                # Day (sensor = off) → Activate day scene
+                default:
+                  - service: scene.turn_on
+                    target:
+                      entity_id: !input szene_tag
+                  - service: input_select.select_option
+                    target:
+                      entity_id: !input status_helper
+                    data:
+                      option: "day"
+              
+              # Send status feedback (if configured)
+              - if:
+                  - condition: template
+                    value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+                then:
+                  - service: knx.send
+                    data:
+                      address: !input status_rueckmeldung_ga
+                      payload: 1
+      
+      # ====================================================================
+      # All Off Button - Always turn off all lights
+      # ====================================================================
+      - conditions:
+          - condition: trigger
+            id: taster_aus
+        sequence:
+          # Turn off light group
+          - service: light.turn_off
+            target:
+              entity_id: !input licht_gruppe
+          
+          # Set status to off
+          - service: input_select.select_option
+            target:
+              entity_id: !input status_helper
+            data:
+              option: "off"
+          
+          # Send status feedback (if configured)
+          - if:
+              - condition: template
+                value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+            then:
+              - service: knx.send
+                data:
+                  address: !input status_rueckmeldung_ga
+                  payload: 0
+      
+      # ====================================================================
+      # Presence ON - Passage Lighting
+      # ====================================================================
+      - conditions:
+          - condition: trigger
+            id: praesenz_on
+          # Only if passage lighting is configured
+          - condition: template
+            value_template: "{{ is_praesenz_konfiguriert }}"
+          # Only if override entity is not active
+          - condition: or
+            conditions:
+              - condition: template
+                value_template: "{{ not is_override_konfiguriert }}"
+              - condition: state
+                entity_id: !input override_entity
+                state: "off"
+              - condition: state
+                entity_id: !input override_entity
+                state: "unavailable"
+        sequence:
+          - choose:
+              # Night → Activate night passage scene
+              - conditions:
+                  - condition: state
+                    entity_id: !input tag_nacht_sensor
+                    state: "on"
+                sequence:
+                  - service: scene.turn_on
+                    target:
+                      entity_id: !input szene_durchgang_nacht
+                  - service: input_select.select_option
+                    target:
+                      entity_id: !input status_helper
+                    data:
+                      option: "passage"
+            
+            # Day → Activate day passage scene
+            default:
+              - service: scene.turn_on
+                target:
+                  entity_id: !input szene_durchgang_tag
+              - service: input_select.select_option
+                target:
+                  entity_id: !input status_helper
+                data:
+                  option: "passage"
+          
+          # Send status feedback (if configured)
+          - if:
+              - condition: template
+                value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+            then:
+              - service: knx.send
+                data:
+                  address: !input status_rueckmeldung_ga
+                  payload: 1
+      
+      # ====================================================================
+      # Presence OFF - Turn off Passage Lighting
+      # ====================================================================
+      - conditions:
+          - condition: trigger
+            id: praesenz_off
+          # Only if passage lighting is configured
+          - condition: template
+            value_template: "{{ is_praesenz_konfiguriert }}"
+          # Only if status is "passage"
+          - condition: state
+            entity_id: !input status_helper
+            state: "passage"
+        sequence:
+          # Determine active passage scene
+          - variables:
+              active_scene: >-
+                {% if is_state(tag_nacht_sensor, 'on') %}
+                  {{ szene_durchgang_nacht }}
+                {% else %}
+                  {{ szene_durchgang_tag }}
+                {% endif %}
+              lights_to_turn_off: "{{ state_attr(active_scene, 'entity_id') or [] }}"
+          
+          # Turn off passage lights
+          - service: homeassistant.turn_off
+            target:
+              entity_id: "{{ lights_to_turn_off }}"
+          
+          # Set status to off
+          - service: input_select.select_option
+            target:
+              entity_id: !input status_helper
+            data:
+              option: "off"
+          
+          # Send status feedback (if configured)
+          - if:
+              - condition: template
+                value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+            then:
+              - service: knx.send
+                data:
+                  address: !input status_rueckmeldung_ga
+                  payload: 0
+      
+      # ====================================================================
+      # Long-term Absence 1 - Turn off selected lights
+      # ====================================================================
+      - conditions:
+          - condition: trigger
+            id: langzeit_1_off
+          # Only if long-term 1 is configured
+          - condition: template
+            value_template: "{{ is_langzeit_1_konfiguriert }}"
+          # Only if lights are configured
+          - condition: template
+            value_template: "{{ praesenz_langzeit_1_lichter.entity_id | default([]) | length > 0 }}"
+        sequence:
+          # Turn off selected lights
+          - service: homeassistant.turn_off
+            target: !input praesenz_langzeit_1_lichter
+      
+      # ====================================================================
+      # Long-term Absence 2 - Turn off all scene lights (except excluded)
+      # ====================================================================
+      - conditions:
+          - condition: trigger
+            id: langzeit_2_off
+          # Only if long-term 2 is configured
+          - condition: template
+            value_template: "{{ is_langzeit_2_konfiguriert }}"
+          # Only if a scene is active
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: !input status_helper
+                state: "day"
+              - condition: state
+                entity_id: !input status_helper
+                state: "night"
+        sequence:
+          # Determine active scene
+          - variables:
+              active_scene: >-
+                {% if is_state(status_helper, 'day') %}
+                  {{ szene_tag }}
+                {% else %}
+                  {{ szene_nacht }}
+                {% endif %}
+              scene_lights: "{{ state_attr(active_scene, 'entity_id') or [] }}"
+              
+              # Filter lights: Remove lights with exclusion labels
+              lights_to_turn_off: >-
+                {% set ns = namespace(filtered=[]) %}
+                {% for light in scene_lights %}
+                  {% set light_labels = state_attr(light, 'labels') or [] %}
+                  {% set has_exclusion_label = false %}
+                  {% for label in ausschluss_labels %}
+                    {% if label in light_labels %}
+                      {% set has_exclusion_label = true %}
+                    {% endif %}
+                  {% endfor %}
+                  {% if not has_exclusion_label %}
+                    {% set ns.filtered = ns.filtered + [light] %}
+                  {% endif %}
+                {% endfor %}
+                {{ ns.filtered }}
+          
+          # Turn off filtered lights
+          - service: homeassistant.turn_off
+            target:
+              entity_id: "{{ lights_to_turn_off }}"
+          
+          # Set status to off
+          - service: input_select.select_option
+            target:
+              entity_id: !input status_helper
+            data:
+              option: "off"
+          
+          # Send status feedback (if configured)
+          - if:
+              - condition: template
+                value_template: "{{ is_status_rueckmeldung_konfiguriert }}"
+            then:
+              - service: knx.send
+                data:
+                  address: !input status_rueckmeldung_ga
+                  payload: 0
+
+# ========================================================================
+# Mode - How to handle multiple triggers
+# ========================================================================
+mode: queued
+max: 10
